@@ -1,0 +1,120 @@
+[
+    {
+        "id": "PM001",
+        "user_uid": "UID-002",
+        "user_name": "Bắp Quốc Kiệt",
+        "user_phone": "0984232649",
+        "user_email": "kietnq1006@ut.edu.vn",
+        "items": [
+            {
+                "book_id": 1,
+                "title": "Clean Code",
+                "price": 100000
+            },
+            {
+                "book_id": 7,
+                "title": "Nhà Giả Kim",
+                "price": 100000
+            }
+        ],
+        "borrow_date": "2026-01-14 17:00:02",
+        "due_date": "2026-01-21 17:00:02",
+        "return_date": "2026-01-14 17:01:12",
+        "status": "completed",
+        "fine_details": [],
+        "total_fine": 0
+    },
+    {
+        "id": "PM002",
+        "user_uid": "UID-003",
+        "user_name": "kiet",
+        "user_phone": "0987654321",
+        "user_email": "123@gmail.com",
+        "items": [
+            {
+                "book_id": 21,
+                "title": "Không Gia Đình",
+                "price": 100000
+            },
+            {
+                "book_id": 2,
+                "title": "Atomic Habits",
+                "price": 100000
+            }
+        ],
+        "borrow_date": "2026-01-14 17:09:42",
+        "due_date": "2026-01-21 17:09:42",
+        "return_date": "2026-01-14 17:10:50",
+        "status": "completed",
+        "fine_details": [
+            "'Không Gia Đình' bẩn: 30,000đ",
+            "'Atomic Habits' mất: 100,000đ"
+        ],
+        "total_fine": 130000
+    },
+    {
+        "id": "PM003",
+        "user_uid": "UID-003",
+        "user_name": "kiet",
+        "user_phone": "0987654321",
+        "user_email": "123@gmail.com",
+        "items": [
+            {
+                "book_id": 14,
+                "title": "Principles",
+                "price": 100000
+            }
+        ],
+        "borrow_date": "2026-01-14 17:11:43",
+        "due_date": "2026-01-21 17:11:43",
+        "return_date": "2026-01-19 17:11:15.790088",
+        "status": "completed",
+        "fine_details": [],
+        "total_fine": 0
+    },
+    {
+        "id": "PM004",
+        "user_uid": "UID-004",
+        "user_name": "Bắp",
+        "user_phone": "0123456789",
+        "user_email": "987@gmail.com",
+        "items": [
+            {
+                "book_id": 5,
+                "title": "Think and Grow Rich",
+                "price": 100000
+            },
+            {
+                "book_id": 11,
+                "title": "The Silent Patient",
+                "price": 100000
+            }
+        ],
+        "borrow_date": "2026-01-14 17:30:04",
+        "due_date": "2026-01-21 17:30:04",
+        "return_date": null,
+        "status": "active",
+        "fine_details": [],
+        "total_fine": 0
+    },
+    {
+        "id": "PM005",
+        "user_uid": "UID-003",
+        "user_name": "kiet",
+        "user_phone": "0987654321",
+        "user_email": "123@gmail.com",
+        "items": [
+            {
+                "book_id": 1,
+                "title": "Clean Code",
+                "price": 320000
+            }
+        ],
+        "borrow_date": "2026-01-15 08:30:45",
+        "due_date": "2026-01-22 08:30:45",
+        "return_date": null,
+        "status": "active",
+        "fine_details": [],
+        "total_fine": 0
+    }
+]
