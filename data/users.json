@@ -1,0 +1,42 @@
+{
+    "admin": {
+        "uid": "AD-001",
+        "username": "admin",
+        "password": "a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3",
+        "name": "Thủ Thư Trưởng",
+        "role": "librarian",
+        "phone": "0909999999",
+        "email": "admin@lib.com",
+        "created_at": "2026-01-22 08:38:20.200822"
+    },
+    "Người đọc": {
+        "uid": "UID-002",
+        "username": "Người đọc",
+        "password": "c775e7b757ede630cd0aa1113bd102661ab38829ca52a6422ab782862f268646",
+        "name": "Bắp Quốc Kiệt",
+        "role": "reader",
+        "phone": "0984232649",
+        "email": "kietnq1006@ut.edu.vn",
+        "created_at": "2026-01-22 08:38:20.200859"
+    },
+    "12345": {
+        "uid": "UID-003",
+        "username": "12345",
+        "password": "20f3765880a5c269b747e1e906054a4b4a3a991259f1e16b5dde4742cec2319a",
+        "name": "kiet",
+        "role": "reader",
+        "phone": "0987654321",
+        "email": "123@gmail.com",
+        "created_at": "2026-01-22 08:38:20.200864"
+    },
+    "bap": {
+        "uid": "UID-004",
+        "username": "bap",
+        "password": "ab75a9f1d3b86e0d55c02e2b28c8c424730ff932b425cdaa6d587e2076b7b314",
+        "name": "Bắp",
+        "role": "reader",
+        "phone": "0123456789",
+        "email": "987@gmail.com",
+        "created_at": "2026-01-22 08:38:20.200868"
+    }
+}
