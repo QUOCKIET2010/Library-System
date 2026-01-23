@@ -24,19 +24,15 @@ class User:
         d['created_at'] = str(self.created_at)
         return d
 
-# --- CẬP NHẬT BORROW SLIP ĐỂ HỖ TRỢ LIST ITEMS ---
+# --- GIỮ NGUYÊN CLASS BORROW SLIP ---
 class BorrowSlip:
     def __init__(self, id, user_uid, user_name, user_phone, user_email, items, borrow_date, due_date, return_date=None, status="active", fine_details=None, total_fine=0, **kwargs):
-        self.id = id
-        self.user_uid = user_uid; self.user_name = user_name
-        self.user_phone = user_phone; self.user_email = user_email
-        self.items = items # List of dict: [{'book_id': 1, 'title': '...', 'price': ...}]
+        self.id = id; self.user_uid = user_uid; self.user_name = user_name; self.user_phone = user_phone; self.user_email = user_email
+        self.items = items
         self.borrow_date = safe_parse_date(borrow_date)
         self.due_date = safe_parse_date(due_date)
         self.return_date = safe_parse_date(return_date) if return_date else None
-        self.status = status 
-        self.fine_details = fine_details or []
-        self.total_fine = total_fine
+        self.status = status; self.fine_details = fine_details or []; self.total_fine = total_fine
     
     def get_status_info(self):
         if self.status == 'completed': return "ĐÃ HOÀN THÀNH", "st-done"
@@ -50,26 +46,25 @@ class BorrowSlip:
         due_date_date = self.due_date.date()
         if now_date > due_date_date:
             days_over = (now_date - due_date_date).days
-            # Phạt 5k/ngày/cuốn
             return days_over * 5000 * len(self.items)
         return 0
 
     def to_dict(self):
         d = self.__dict__.copy()
-        d['borrow_date'] = str(self.borrow_date)
-        d['due_date'] = str(self.due_date)
+        d['borrow_date'] = str(self.borrow_date); d['due_date'] = str(self.due_date)
         d['return_date'] = str(self.return_date) if self.return_date else None
         return d
 
+# --- HỆ THỐNG CHÍNH ---
 class LibrarySystem:
     def __init__(self):
+        # Giữ nguyên cấu trúc thư mục data/
         if not os.path.exists('data'): os.makedirs('data')
         self.files = {'books': 'data/books.json', 'users': 'data/users.json', 'slips': 'data/slips.json'}
         self.books = []; self.users = {}; self.slips = []
         self.load_data()
 
     def load_data(self):
-        # ... (Giữ nguyên logic load books và users) ...
         if os.path.exists(self.files['books']):
             with open(self.files['books'], 'r', encoding='utf-8') as f: self.books = [Book(**b) for b in json.load(f)]
         else: self.save_data('books')
@@ -90,23 +85,32 @@ class LibrarySystem:
         elif type == 'slips': f, d = self.files['slips'], [s.to_dict() for s in self.slips]
         with open(f, 'w', encoding='utf-8') as file: json.dump(d, file, ensure_ascii=False, indent=4)
 
-    # ... (Giữ nguyên các hàm login, register, reset_password, add/delete book/user) ...
     def login(self, u, p):
         user = self.users.get(u)
         return user if user and user.password == make_hash(p) else None
 
+    # --- CẬP NHẬT: THÊM RÀNG BUỘC SĐT VÀ EMAIL ---
     def register(self, d):
-        if not d['username'] or not d['password'] or not d['name']: return False, "Thiếu thông tin!"
+        # Kiểm tra thông tin cơ bản
+        if not d['username'] or not d['password'] or not d['name']: 
+            return False, "Thiếu thông tin cơ bản!"
+        
+        # Kiểm tra SĐT và Email (BẮT BUỘC)
+        if not d['phone'] or not d['email']: 
+            return False, "Vui lòng nhập đầy đủ SĐT và Email!"
+            
         if d['username'] in self.users: return False, "Username đã tồn tại!"
+        
         uid = f"U{len(self.users)+1:03d}"
-        self.users[d['username']] = User(uid, d['username'], make_hash(d['password']), d['name'], "reader", d['phone'], d['email'])
+        hashed_pass = make_hash(d['password'])
+        self.users[d['username']] = User(uid, d['username'], hashed_pass, d['name'], "reader", d['phone'], d['email'])
         self.save_data('users'); return True, "Đăng ký thành công!"
 
     def reset_password(self, username, new_pass):
         if username not in self.users: return False, "Username không tồn tại!"
         self.users[username].password = make_hash(new_pass)
         self.save_data('users'); return True, "Đổi mật khẩu thành công!"
-        
+
     def add_or_update_book(self, d, book_id=None):
         if book_id:
             book = next((b for b in self.books if b.id == book_id), None)
@@ -122,7 +126,6 @@ class LibrarySystem:
     def delete_book(self, book_id):
         book = next((b for b in self.books if b.id == book_id), None)
         if not book: return False, "Không tìm thấy."
-        # Check if borrowed inside items list
         is_borrowed = any(any(i['book_id'] == book_id for i in s.items) for s in self.slips if s.status in ['active', 'processing'])
         if is_borrowed: return False, "Sách đang có người mượn!"
         self.books.remove(book); self.save_data('books'); return True, "Đã xóa sách!"
@@ -141,31 +144,23 @@ class LibrarySystem:
         if any(s.user_uid == target.uid and s.status in ['active', 'processing'] for s in self.slips): return False, "Đang mượn sách!"
         del self.users[target_u]; self.save_data('users'); return True, "Đã xóa thành viên!"
 
-    # ========================================================
-    # LOGIC CHÍNH: GỘP KHI MƯỢN & TÁCH KHI TRẢ
-    # ========================================================
-
+    # --- GIỮ NGUYÊN LOGIC GỘP PHIẾU CŨ ---
     def borrow_book(self, bid, user):
-        # 1. Validate số lượng đang giữ
         active_slips = [s for s in self.slips if s.user_uid == user.uid and s.status in ['active', 'processing']]
-        # Đếm tổng sách trong các items
         total_holding = sum(len(s.items) for s in active_slips)
         
-        if total_holding >= 5: return False, f"Đạt giới hạn! Đang giữ {total_holding}/5 cuốn."
+        if total_holding >= 5: 
+            return False, f"Đạt giới hạn! Bạn đang giữ {total_holding}/5 cuốn. Vui lòng trả bớt."
         
-        # Check quá hạn
         for s in active_slips:
-            if s.status == 'active' and datetime.now().date() > s.due_date.date():
-                return False, "Có sách quá hạn, vui lòng trả trước khi mượn thêm."
-
+            if s.status == 'active' and datetime.now().date() > s.due_date.date(): 
+                return False, "BẠN CÓ SÁCH QUÁ HẠN! Không thể mượn tiếp."
+        
         book = next((b for b in self.books if b.id == bid), None)
         if not book or book.available() <= 0: return False, "Sách không khả dụng."
-
-        # 2. LOGIC GỘP PHIẾU
+        
         today_date = datetime.now().date()
         target_slip = None
-        
-        # Tìm phiếu Active của user tạo trong hôm nay
         for s in active_slips:
             if s.status == 'active' and s.borrow_date.date() == today_date:
                 target_slip = s
@@ -174,68 +169,49 @@ class LibrarySystem:
         item_data = {'book_id': book.id, 'title': book.title, 'price': book.price}
         
         if target_slip:
-            # Case A: Gộp vào phiếu hôm nay
             target_slip.items.append(item_data)
-            msg = f"Đã gộp '{book.title}' vào phiếu mượn hôm nay!"
+            msg = f"Đã thêm '{book.title}' vào phiếu mượn hôm nay!"
         else:
-            # Case B: Tạo phiếu mới
-            slip_id = f"M{int(time.time())}"
+            slip_id = f"M{int(time.time())}" 
             new_slip = BorrowSlip(slip_id, user.uid, user.name, user.phone, user.email, 
                                   [item_data], datetime.now(), datetime.now() + timedelta(days=7))
             self.slips.append(new_slip)
-            msg = f"Mượn '{book.title}' thành công (Phiếu mới)!"
+            msg = f"Mượn '{book.title}' thành công (Tạo phiếu mới)!"
 
         book.borrowed += 1
-        self.save_data('books'); self.save_data('slips')
-        return True, msg
+        self.save_data('books'); self.save_data('slips'); return True, msg
 
+    # --- GIỮ NGUYÊN LOGIC TÁCH PHIẾU CŨ ---
     def request_return_logic(self, slip_id, selected_book_ids):
-        """
-        Xử lý tách phiếu khi trả sách.
-        - selected_book_ids: danh sách ID các cuốn sách muốn trả
-        """
         slip = next((s for s in self.slips if s.id == slip_id), None)
         if not slip or slip.status != 'active': return False, "Phiếu không hợp lệ"
-        
         if not selected_book_ids: return False, "Chưa chọn sách để trả"
 
-        # Phân loại sách
         items_to_return = []
         items_remaining = []
         
         for item in slip.items:
-            if item['book_id'] in selected_book_ids:
-                items_to_return.append(item)
-            else:
-                items_remaining.append(item)
+            if item['book_id'] in selected_book_ids: items_to_return.append(item)
+            else: items_remaining.append(item)
         
-        # Case 1: Trả hết (Không cần tách, chỉ đổi trạng thái)
         if not items_remaining:
             slip.status = 'processing'
             self.save_data('slips')
             return True, "Đã gửi yêu cầu trả toàn bộ!"
-        
-        # Case 2: Trả 1 phần (Tách phiếu)
         else:
-            # Update phiếu cũ: Chỉ giữ lại sách chưa trả
             slip.items = items_remaining
-            
-            # Tạo phiếu mới cho sách trả
-            # Thêm suffix random để ID không trùng
-            suffix = ''.join(random.choices(string.ascii_uppercase + string.digits, k=3))
-            new_slip_id = f"{slip.id}_RET_{suffix}"
+            suffix = ''.join(random.choices(string.ascii_uppercase, k=3))
+            new_slip_id = f"{slip.id}_RET_{suffix}" 
             
             new_slip = BorrowSlip(
                 id=new_slip_id,
                 user_uid=slip.user_uid, user_name=slip.user_name, user_phone=slip.user_phone, user_email=slip.user_email,
                 items=items_to_return,
-                borrow_date=slip.borrow_date, # Giữ ngày mượn gốc
-                due_date=slip.due_date,       # Giữ hạn trả gốc
-                status='processing'           # Trạng thái chờ xử lý
+                borrow_date=slip.borrow_date, due_date=slip.due_date, status='processing'
             )
             self.slips.append(new_slip)
             self.save_data('slips')
-            return True, f"Đã tách {len(items_to_return)} cuốn sang phiếu xử lý trả!"
+            return True, f"Đã tách yêu cầu trả {len(items_to_return)} cuốn sách!"
 
     def cancel_return_request(self, slip_id):
         slip = next((s for s in self.slips if s.id == slip_id), None)

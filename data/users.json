@@ -38,5 +38,15 @@
         "phone": "0123456789",
         "email": "987@gmail.com",
         "created_at": "2026-01-22 08:38:20.200868"
+    },
+    "alibaba": {
+        "uid": "U005",
+        "username": "alibaba",
+        "password": "047364b9be67f665eca384b8061d688b8642a8b47b3de35c22a012ed6fe69242",
+        "name": "alibaba",
+        "role": "reader",
+        "phone": "0909090909",
+        "email": "abc@gmail.com",
+        "created_at": "2026-01-23 11:40:18.501790"
     }
 }
