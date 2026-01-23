@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  libtech-app:
+    build: .
+    container_name: libtech_system
+    ports:
+      - "8501:8501"
+    volumes:
+      # Ánh xạ các file dữ liệu để không bị mất khi tắt container
+      - ./books.json:/app/books.json
+      - ./users.json:/app/users.json
+      - ./slips.json:/app/slips.json
+      # (Tùy chọn) Nếu muốn sửa code xong cập nhật ngay mà không cần build lại:
+      # - ./modules:/app/modules
+      # - ./app.py:/app/app.py
+    restart: unless-stopped
