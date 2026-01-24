@@ -14,7 +14,10 @@ QUOTES = [
     "Thư viện là kho tàng chứa đựng cả thế giới."
 ]
 
-# --- GIỮ NGUYÊN CÁC DIALOG CŨ ---
+# ==========================================
+# 1. DIALOGS (HỘP THOẠI)
+# ==========================================
+
 @st.dialog("📘 Chi tiết tác phẩm", width="large")
 def modal_book_detail(book, lib):
     st.markdown('<div class="detail-frame">', unsafe_allow_html=True)
@@ -32,7 +35,7 @@ def modal_book_detail(book, lib):
         st.markdown(f"<div style='margin: 15px 0; font-size:1.4rem; color:#dc2626; font-weight:800; padding:10px; background:#fef2f2; border-radius:8px; border:1px solid #fee2e2; width:fit-content;'>{book.price:,} VNĐ</div>", unsafe_allow_html=True)
         st.markdown(f"<div style='background:#f9fafb; padding:15px; border-radius:8px; border:1px solid #eee; font-size:0.95rem; line-height:1.6; color:#4b5563;'><b>Mô tả:</b><br>{book.desc}</div>", unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
-    st.markdown("<br>", unsafe_allow_html=True)
+    
     cols = st.columns(2)
     if cols[0].button("Đóng", use_container_width=True): st.rerun()
     if avail > 0:
@@ -41,7 +44,7 @@ def modal_book_detail(book, lib):
             elif st.session_state.user.role == 'librarian': st.warning("Thủ thư vui lòng dùng quyền Admin.")
             else:
                 ok, msg = lib.borrow_book(book.id, st.session_state.user)
-                if ok: st.toast(msg, icon="📚"); time.sleep(1); st.rerun()
+                if ok: st.toast(msg, icon="📚"); time.sleep(1.5); st.rerun()
                 else: st.error(msg)
     else: cols[1].button("🚫 Hết hàng", disabled=True, use_container_width=True)
 
@@ -63,17 +66,15 @@ def modal_edit_book(book, lib):
         t = st.text_input("Tên sách", value=book.title)
         a = st.text_input("Tác giả", value=book.author)
         c1, c2 = st.columns(2)
-        cat = c1.text_input("Thể loại", value=book.category, placeholder="VD: Công nghệ, Văn học...")
-        y = c2.number_input("Năm XB", value=book.year)
+        cat = c1.text_input("Thể loại", value=book.category); y = c2.number_input("Năm XB", value=book.year)
         c3, c4 = st.columns(2)
         q = c3.number_input("Tổng nhập kho", value=book.qty, min_value=1)
-        b_count = c4.number_input("Đang được mượn (Thực tế)", value=book.borrowed, min_value=0)
+        b_count = c4.number_input("Đang được mượn", value=book.borrowed, min_value=0)
         p = st.number_input("Giá bìa (VNĐ)", value=book.price)
         d = st.text_area("Mô tả", value=book.desc)
         img = st.text_input("Link ảnh", value=book.image)
         if st.form_submit_button("Lưu thay đổi", type="primary"):
-            final_cat = cat.strip().title() if cat else "Chưa phân loại"
-            data = {'title':t, 'author':a, 'category':final_cat, 'year':y, 'qty':q, 'borrowed':b_count, 'price':p, 'desc':d, 'image':img}
+            data = {'title':t, 'author':a, 'category':cat, 'year':y, 'qty':q, 'borrowed':b_count, 'price':p, 'desc':d, 'image':img}
             ok, msg = lib.add_or_update_book(data, book_id=book.id)
             st.toast(msg, icon="💾"); time.sleep(1); st.rerun()
 
@@ -90,21 +91,34 @@ def modal_edit_user(u_obj, lib):
             if ok: st.toast(msg, icon="✅"); time.sleep(1); st.rerun()
             else: st.error(msg)
 
-@st.dialog("💸 Xử lý Trả sách", width="large")
+@st.dialog("📚 Chọn sách muốn trả")
+def modal_return_selection(slip, lib):
+    st.write("Vui lòng chọn những cuốn sách bạn muốn trả trong phiếu này:")
+    book_map = {item['book_id']: f"{item['title']} (ID: {item['book_id']})" for item in slip.items}
+    selected_ids = st.multiselect("Danh sách sách:", options=list(book_map.keys()), format_func=lambda x: book_map[x], default=list(book_map.keys()))
+    st.info(f"Bạn đang chọn trả: **{len(selected_ids)}** cuốn.")
+    if len(selected_ids) < len(slip.items) and len(selected_ids) > 0:
+        st.warning("⚠️ Hệ thống sẽ tách phiếu. Các sách KHÔNG chọn vẫn tính thời gian mượn.")
+    
+    col1, col2 = st.columns(2)
+    if col1.button("Hủy bỏ", use_container_width=True): st.rerun()
+    if col2.button("Xác nhận trả", type="primary", use_container_width=True, disabled=len(selected_ids)==0):
+        ok, msg = lib.request_return_logic(slip.id, selected_ids)
+        if ok: st.toast(msg, icon="✅"); time.sleep(1.5); st.rerun()
+        else: st.error(msg)
+
+@st.dialog("💸 Xử lý Trả sách (Admin)", width="large")
 def modal_process_return(slip, lib):
     st.subheader(f"Phiếu: {slip.id}")
     st.caption(f"Người mượn: {slip.user_name} | Hạn trả: {slip.due_date.strftime('%d/%m/%Y')}")
     est_fine = slip.get_estimated_fine()
     
     check_date = slip.due_date.date() if slip.due_date else datetime.now().date()
-    now_date = datetime.now().date()
-    
-    if now_date > check_date:
-        days = (now_date - check_date).days
+    if datetime.now().date() > check_date:
+        days = (datetime.now().date() - check_date).days
         st.error(f"⚠️ Đã quá hạn {days} ngày.")
         st.markdown(f"💰 **Tiền phạt trễ hạn dự kiến:** `{est_fine:,}đ` (5.000đ x {len(slip.items)} cuốn x {days} ngày)")
-    else:
-        st.success("✅ Trả đúng hạn. Không có phạt trễ.")
+    else: st.success("✅ Trả đúng hạn. Không có phạt trễ.")
         
     with st.form(f"ret_{slip.id}"):
         conds = {}
@@ -118,40 +132,13 @@ def modal_process_return(slip, lib):
             ok, msg = lib.confirm_return(slip.id, conds)
             st.toast(msg, icon="💰"); time.sleep(1.5); st.rerun()
 
-# --- DIALOG MỚI: CHỌN SÁCH TRẢ ---
-@st.dialog("📚 Chọn sách muốn trả")
-def modal_return_selection(slip, lib):
-    st.write("Vui lòng chọn những cuốn sách bạn muốn trả trong phiếu này:")
-    
-    book_map = {item['book_id']: f"{item['title']}" for item in slip.items}
-    
-    selected_ids = st.multiselect(
-        "Danh sách sách:",
-        options=list(book_map.keys()),
-        format_func=lambda x: book_map[x],
-        default=list(book_map.keys())
-    )
-    
-    st.info(f"Bạn đang chọn trả: **{len(selected_ids)}** cuốn.")
-    if len(selected_ids) < len(slip.items) and len(selected_ids) > 0:
-        st.warning("⚠️ Lưu ý: Phiếu sẽ được tách ra. Các sách chưa chọn sẽ vẫn tiếp tục tính thời gian mượn.")
-    
-    col1, col2 = st.columns(2)
-    if col1.button("Hủy bỏ", use_container_width=True):
-        st.rerun()
-        
-    if col2.button("Xác nhận trả", type="primary", use_container_width=True, disabled=len(selected_ids)==0):
-        ok, msg = lib.request_return_logic(slip.id, selected_ids)
-        if ok:
-            st.toast(msg, icon="✅")
-            time.sleep(1.5)
-            st.rerun()
-        else:
-            st.error(msg)
+# ==========================================
+# 2. PAGES
+# ==========================================
 
-# --- PAGES ---
 def page_home(lib):
     st.markdown(f"""<div class="hero-box"><h1 class="hero-title">THƯ VIỆN TRI THỨC</h1><div class="quote-text">"{random.choice(QUOTES)}"</div></div>""", unsafe_allow_html=True)
+    
     with st.form("search_form"):
         c_search, c_filter, c_btn = st.columns([3, 1, 0.5])
         search_txt = c_search.text_input("Search", placeholder="Tìm tên sách, tác giả...", label_visibility="collapsed")
@@ -160,12 +147,18 @@ def page_home(lib):
         c_btn.form_submit_button("🔍", use_container_width=True)
     
     filtered = lib.books
-    if search_txt: filtered = [b for b in filtered if search_txt.lower() in b.title.lower()]
+    if search_txt: 
+        keyword = search_txt.lower()
+        filtered = [b for b in filtered if keyword in b.title.lower() or keyword in b.author.lower()]
+        
     if selected_cat != "Tất cả": filtered = [b for b in filtered if b.category == selected_cat]
 
     paginated_books, current_page, total_pages = get_paginated_items(filtered, 12, "home")
-    
     cols = st.columns(4)
+    
+    if not paginated_books:
+        st.warning("Không tìm thấy kết quả phù hợp! Hãy thử từ khóa khác.")
+        
     for i, book in enumerate(paginated_books):
         with cols[i % 4]:
             with st.container():
@@ -189,7 +182,6 @@ def page_reader_history(lib):
     with tab1:
         active = [s for s in lib.slips if s.user_uid == u_uid and s.status in ['active', 'processing']]
         active.sort(key=lambda x: (0 if x.status == 'processing' else 1, x.borrow_date), reverse=False)
-        
         if not active: st.info("Bạn không có sách nào đang mượn.")
         
         for s in active:
@@ -197,12 +189,10 @@ def page_reader_history(lib):
             with st.container(border=True):
                 c1, c2, c3, c4 = st.columns([1, 3, 2, 1.2])
                 c1.markdown(f"<div class='card-label'>MÃ PHIẾU</div><span class='id-badge'>#{s.id}</span>", unsafe_allow_html=True)
-                
                 with c2:
                     st.markdown("<div class='card-label'>SÁCH MƯỢN</div>", unsafe_allow_html=True)
-                    for item in s.items:
-                        st.markdown(f"• **{item['title']}** <span style='color:#666; font-size:0.8em'>(ID: {item['book_id']})</span>", unsafe_allow_html=True)
-
+                    for item in s.items: st.markdown(f"• **{item['title']}** <span style='color:#666; font-size:0.8em'>(ID: {item['book_id']})</span>", unsafe_allow_html=True)
+                
                 is_late = datetime.now().date() > s.due_date.date()
                 date_color = "#dc2626" if is_late else "#111"
                 date_html = f"<div class='card-label'>THỜI GIAN</div><div class='card-value'>Ngày mượn: {s.borrow_date.strftime('%d/%m/%Y')}</div><div class='card-value' style='color:{date_color}'>Hạn trả: <b>{s.due_date.strftime('%d/%m/%Y')}</b></div>"
@@ -210,14 +200,12 @@ def page_reader_history(lib):
                 c3.markdown(date_html, unsafe_allow_html=True)
                 
                 c4.markdown(f"<div style='margin-bottom:5px'><span class='status-badge {st_cls}'>{st_lbl}</span></div>", unsafe_allow_html=True)
-                
                 if s.status == 'active':
-                    if c4.button("Trả sách", key=f"btn_ret_{s.id}", type="primary", use_container_width=True):
-                        modal_return_selection(s, lib)
+                    if c4.button("Trả sách", key=f"btn_ret_{s.id}", type="primary", use_container_width=True): modal_return_selection(s, lib)
                 elif s.status == 'processing':
                     if c4.button("❌ Hủy yêu cầu", key=f"btn_can_{s.id}", use_container_width=True): 
                         lib.cancel_return_request(s.id)
-                        st.toast("Đã hủy yêu cầu!", icon="↩️"); time.sleep(1); st.rerun()
+                        st.toast("Đã hủy yêu cầu", icon="↩️"); time.sleep(1.5); st.rerun()
 
     with tab2:
         history = [s for s in lib.slips if s.user_uid == u_uid and s.status == 'completed']
@@ -228,15 +216,15 @@ def page_reader_history(lib):
             with st.container(border=True):
                 k1, k2, k3, k4 = st.columns([1, 3, 2, 2])
                 k1.markdown(f"<div class='card-label'>MÃ PHIẾU</div><span class='id-badge'>#{s.id}</span>", unsafe_allow_html=True)
-                bk_html = "".join([f"<div>• {i['title']}</div>" for i in s.items])
-                k2.markdown(f"<div class='card-label'>SÁCH ĐÃ TRẢ</div><div class='card-value'>{bk_html}</div>", unsafe_allow_html=True)
+                with k2:
+                    st.markdown("<div class='card-label'>SÁCH ĐÃ TRẢ</div>", unsafe_allow_html=True)
+                    for item in s.items: st.write(f"• {item['title']}")
                 k3.markdown(f"<div class='card-label'>NGÀY TRẢ</div><div class='card-value'>{s.return_date.strftime('%d/%m/%Y')}</div>", unsafe_allow_html=True)
                 if s.total_fine > 0:
                     k4.markdown(f"<div class='card-label'>PHẠT</div><div style='color:red; font-weight:bold'>{s.total_fine:,}đ</div>", unsafe_allow_html=True)
                     with k4.popover("Chi tiết lỗi"):
                         for r in s.fine_details: st.write(f"- {r}")
-                else:
-                    k4.markdown("<div class='card-label'>TRẠNG THÁI</div><div style='color:green; font-weight:bold'>Hoàn thành</div>", unsafe_allow_html=True)
+                else: k4.markdown("<div class='card-label'>TRẠNG THÁI</div><div style='color:green; font-weight:bold'>Hoàn thành</div>", unsafe_allow_html=True)
         render_pagination_footer(curr, total, "my_hist")
 
 def page_admin_loans(lib):
@@ -258,18 +246,18 @@ def page_admin_loans(lib):
                 c1, c2, c3 = st.columns([1.2, 1.5, 1])
                 c1.markdown("<div class='card-label'>👤 NGƯỜI MƯỢN</div>", unsafe_allow_html=True)
                 c1.markdown(f"""<div class='card-value-bold'>{s.user_name}</div><div class='card-value'>ID: <code>{s.user_uid}</code></div><div class='card-value'>📞 {s.user_phone}</div><div class='card-value'>📧 {s.user_email}</div>""", unsafe_allow_html=True)
-                c2.markdown("<div class='card-label'>📘 SÁCH & THỜI GIAN</div>", unsafe_allow_html=True)
-                bk_list = "".join([f"<div>• {i['title']} <span style='color:#666; font-size:0.85em'>(Mã: {i['book_id']})</span></div>" for i in s.items])
-                c2.markdown(f"<div class='card-value' style='margin-bottom:8px'>{bk_list}</div>", unsafe_allow_html=True)
-                
-                is_late = datetime.now().date() > (s.due_date.date() or datetime.now().date())
-                date_color = "#dc2626" if is_late else "#111"
-                date_str = f"""<div class='card-value'>📅 Ngày mượn: {s.borrow_date.strftime('%d/%m/%Y')}</div><div class='card-value' style='color:{date_color}'>⏳ Hạn trả: <b>{(s.due_date or datetime.now()).strftime('%d/%m/%Y')}</b></div>"""
-                if is_late and s.status == 'active': date_str += f"<div style='color:#dc2626; font-size:0.8em; font-weight:700'>⚠️ Quá hạn - Phạt: {s.get_estimated_fine():,}đ</div>"
-                c2.markdown(date_str, unsafe_allow_html=True)
+                with c2:
+                    st.markdown("<div class='card-label'>📘 SÁCH & THỜI GIAN</div>", unsafe_allow_html=True)
+                    for item in s.items: st.markdown(f"• {item['title']} <span style='color:#666; font-size:0.85em'>(Mã: {item['book_id']})</span>", unsafe_allow_html=True)
+                    is_late = datetime.now().date() > (s.due_date.date() or datetime.now().date())
+                    date_color = "#dc2626" if is_late else "#111"
+                    st.markdown(f"<div class='card-value' style='margin-top:8px'>📅 Ngày mượn: {s.borrow_date.strftime('%d/%m/%Y')}</div>", unsafe_allow_html=True)
+                    st.markdown(f"<div class='card-value' style='color:{date_color}'>⏳ Hạn trả: <b>{(s.due_date or datetime.now()).strftime('%d/%m/%Y')}</b></div>", unsafe_allow_html=True)
+                    if is_late and s.status == 'active':
+                         est_fine = s.get_estimated_fine()
+                         st.markdown(f"<div style='color:#dc2626; font-size:0.8em; font-weight:700'>⚠️ Quá hạn - Phạt dự kiến: {est_fine:,}đ</div>", unsafe_allow_html=True)
                 c3.markdown("<div class='card-label'>THAO TÁC</div>", unsafe_allow_html=True)
-                btn_txt = "⚡ Xử lý ngay" if is_proc else "Thu hồi / Trả sách"
-                if c3.button(btn_txt, key=f"adm_btn_{s.id}", type="primary" if is_proc else "secondary", use_container_width=True):
+                if c3.button("⚡ Xử lý ngay" if is_proc else "Thu hồi / Trả sách", key=f"adm_btn_{s.id}", type="primary" if is_proc else "secondary", use_container_width=True):
                     modal_process_return(s, lib)
         render_pagination_footer(curr, total, "adm_active")
     with t2:
@@ -286,11 +274,11 @@ def page_admin_loans(lib):
                 k1, k2, k3 = st.columns([1.2, 1.5, 1])
                 k1.markdown("<div class='card-label'>👤 NGƯỜI MƯỢN</div>", unsafe_allow_html=True)
                 k1.markdown(f"""<div class='card-value-bold'>{s.user_name}</div><div class='card-value'>ID: <code>{s.user_uid}</code></div><div class='card-value'>📞 {s.user_phone} | 📧 {s.user_email}</div>""", unsafe_allow_html=True)
-                k2.markdown("<div class='card-label'>📘 SÁCH ĐÃ TRẢ</div>", unsafe_allow_html=True)
-                bk_list = "".join([f"<div>• {i['title']} <span style='color:#666'>(Mã: {i['book_id']})</span></div>" for i in s.items])
-                k2.markdown(f"<div class='card-value'>{bk_list}</div>", unsafe_allow_html=True)
-                k2.markdown(f"<div class='card-value' style='margin-top:5px'>📅 Ngày mượn: {s.borrow_date.strftime('%d/%m/%Y')}</div>", unsafe_allow_html=True)
-                k2.markdown(f"<div class='card-value'>📅 Ngày trả: <b>{s.return_date.strftime('%d/%m/%Y')}</b></div>", unsafe_allow_html=True)
+                with k2:
+                    st.markdown("<div class='card-label'>📘 SÁCH ĐÃ TRẢ</div>", unsafe_allow_html=True)
+                    for item in s.items: st.write(f"• {item['title']}")
+                    st.markdown(f"<div class='card-value' style='margin-top:5px'>📅 Ngày mượn: {s.borrow_date.strftime('%d/%m/%Y')}</div>", unsafe_allow_html=True)
+                    st.markdown(f"<div class='card-value'>📅 Ngày trả: <b>{s.return_date.strftime('%d/%m/%Y')}</b></div>", unsafe_allow_html=True)
                 k3.markdown("<div class='card-label'>KẾT QUẢ / PHẠT</div>", unsafe_allow_html=True)
                 if s.total_fine > 0:
                     k3.markdown(f"<div style='color:#dc2626; font-size:1.1rem; font-weight:bold'>{s.total_fine:,}đ</div>", unsafe_allow_html=True)
@@ -359,9 +347,34 @@ def page_admin_system(lib):
                     if col_b2.button("🗑️", key=f"du_{u.uid}", type="primary", use_container_width=True): modal_confirm_delete('user', u.username, u.name, lib)
                 else: c4.markdown("<span class='status-badge st-active'>ADMIN</span>", unsafe_allow_html=True)
         render_pagination_footer(curr, total, "adm_usr")
+    
+    # --- PHẦN CẬP NHẬT TAB 3 CÓ THANH TÌM KIẾM ---
     with t3:
-        if st.button("➕ Thêm sách mới", type="primary"): modal_edit_book(Book(0, "", "", "Công nghệ", "", "", 1, 100000, 2024), lib)
-        p_books, curr, total = get_paginated_items(lib.books, 10, "adm_bk")
+        # Layout: Nút thêm mới bên trái (nhỏ) - Thanh tìm kiếm bên phải (lớn)
+        col_actions, col_search = st.columns([1, 2.5])
+        
+        with col_actions:
+            if st.button("➕ Thêm sách mới", type="primary", use_container_width=True): 
+                modal_edit_book(Book(0, "", "", "Công nghệ", "", "", 1, 100000, 2024), lib)
+        
+        with col_search:
+            # Input tìm kiếm
+            search_query = st.text_input("Tìm kiếm sách trong kho", placeholder="Nhập tên sách, tác giả hoặc ID...", label_visibility="collapsed")
+
+        # Logic lọc danh sách sách
+        display_books = lib.books
+        if search_query:
+            k = search_query.lower()
+            # Tìm theo tên, tác giả hoặc ID sách
+            display_books = [b for b in display_books if k in b.title.lower() or k in b.author.lower() or k == str(b.id)]
+
+        # Phân trang hiển thị dựa trên danh sách đã lọc (display_books)
+        p_books, curr, total = get_paginated_items(display_books, 10, "adm_bk")
+        
+        # Hiển thị thông báo nếu không tìm thấy
+        if not p_books:
+            st.warning("Không tìm thấy cuốn sách nào khớp với từ khóa.")
+            
         for b in p_books:
             with st.container(border=True):
                 c1, c2, c3, c4, c5 = st.columns([0.8, 2, 1.5, 1, 1.5])
@@ -375,7 +388,6 @@ def page_admin_system(lib):
                 if col_b2.button("🗑️", key=f"db_{b.id}", type="primary", use_container_width=True): modal_confirm_delete('book', b.id, b.title, lib)
         render_pagination_footer(curr, total, "adm_bk")
 
-# --- CẬP NHẬT: GIAO DIỆN ĐĂNG KÝ BẮT BUỘC SĐT & EMAIL ---
 def page_login_register(lib):
     st.markdown("<br>", unsafe_allow_html=True)
     if 'auth_mode' not in st.session_state: st.session_state.auth_mode = 'login'
@@ -402,9 +414,7 @@ def page_login_register(lib):
                 with st.form("reg_form"):
                     st.caption("Các trường có dấu (*) là bắt buộc")
                     u=st.text_input("Username*"); p=st.text_input("Password*", type="password")
-                    n=st.text_input("Họ tên*")
-                    # -- DẤU SAO BẮT BUỘC --
-                    ph=st.text_input("SĐT*"); e=st.text_input("Email*")
+                    n=st.text_input("Họ tên*"); ph=st.text_input("SĐT*"); e=st.text_input("Email*")
                     if st.form_submit_button("Đăng ký ngay", type="primary", use_container_width=True):
                         ok, msg = lib.register({'username':u, 'password':p, 'name':n, 'phone':ph, 'email':e})
                         if ok: st.toast(msg, icon="✨"); time.sleep(1); st.session_state.auth_mode='login'; st.rerun()
